@@ -6,45 +6,74 @@ service cloud.firestore {
     // ===============================================================
     //
     // Collection: accounts
+    // Document ID: auto-generated
     // Fields:
-    //   - name: string (required)
-    //   - size: number (required)
-    //   - type: string (required, enum: Challenge, Funded)
-    //   - propFirm: string
-    //   - profitTarget: number
-    //   - maxDrawdown: number
-    //   - consistencyRule: number
-    //   - initialBalance: number (required)
-    //   - currentBalance: number
-    //   - maxBalance: number
-    //   - userId: string (required)
-    //   - createdAt: timestamp
+    //   - userId: string (required) - Owner's UID
+    //   - name: string (required) - Account name
+    //   - size: number (required) - Account size in thousands
+    //   - type: string (required) - Challenge, Funded, Personal, Failed
+    //   - propFirm: string (optional) - Prop firm name
+    //   - initialBalance: number - Initial balance in USD
+    //   - currentBalance: number - Current balance in USD
+    //   - maxBalance: number - Maximum balance reached
+    //   - profitTarget: number - Profit target in USD
+    //   - maxDrawdown: number - Maximum drawdown in USD
+    //   - consistencyRule: number - Consistency rule percentage (0-1)
+    //   - commissions: map - Commission per contract for each asset
+    //   - createdAt: timestamp - Creation time
     //
     // Collection: trades
+    // Document ID: auto-generated
     // Fields:
-    //   - accountId: string (required)
-    //   - asset: string (required, enum: MNQ, NQ, ES, MES, MGC, GC)
-    //   - direction: string (required, enum: Long, Short)
-    //   - contractSize: number (required)
-    //   - entryPrice: number (required)
-    //   - stopLoss: number
-    //   - takeProfit: number
-    //   - exitPrice: number
-    //   - exitReason: string (enum: TP, SL, Partial Closed, Cut Loss, Breakeven)
-    //   - partialCloseReason: string (enum: Structural, Mental)
-    //   - pnl: number
-    //   - riskReward: number
-    //   - date: timestamp
-    //   - taNotes: string
-    //   - psychologyNotes: string
-    //   - userId: string (required)
-    //   - createdAt: timestamp
+    //   - userId: string (required) - Owner's UID
+    //   - accountId: string (required) - Associated account ID
+    //   - strategyId: string (optional) - Associated strategy ID
+    //   - asset: string (required) - Asset symbol (e.g., NQ)
+    //   - direction: string (required) - Long or Short
+    //   - entryPrice: number (required) - Entry price
+    //   - stopLoss: number - Stop loss price
+    //   - takeProfit: number - Take profit price
+    //   - contractSize: number - Number of contracts
+    //   - exits: list - List of exit objects {price, contracts, time}
+    //   - pnl: number - Profit or loss in USD
+    //   - commission: number - Total commission in USD
+    //   - riskReward: number - Risk to reward ratio
+    //   - date: string - Trade date (ISO 8601)
+    //   - notes: string - Trade notes
+    //   - beforeImage: string - Base64 image before trade
+    //   - afterImage: string - Base64 image after trade
+    //   - entryContext: string - Context for entry
+    //   - marketRegime: string - Market regime (e.g., Bullish)
+    //   - fundamentalContext: string - Fundamental context
+    //   - exitLogicFollowed: bool - Whether exit logic was followed
+    //   - psychologyStatus: string - Psychological state
+    //   - preTradeMindset: string - Mindset before trade
+    //   - duringTradeEmotions: string - Emotions during trade
+    //   - postTradeReview: string - Review after trade
+    //   - disciplineScore: number - Discipline score (1-10)
+    //   - mistakes: list - List of mistakes made
+    //   - createdAt: timestamp - Creation time
+    //
+    // Collection: strategies
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required) - Owner's UID
+    //   - name: string (required) - Strategy name
+    //   - description: string - Strategy description
+    //   - rules: list - List of strategy rules
+    //   - setup: map - Timeframes, indicators, confluences
+    //   - risk: map - Max risk, reward to risk, max drawdown
+    //   - psychology: map - Mindset, discipline, triggers, boosters
+    //   - dailyLossLimit: number - Daily loss limit in USD
+    //   - maxTradesPerDay: number - Maximum trades per day
+    //   - createdAt: timestamp - Creation time
     //
     // ===============================================================
 
     // ===============================================================
     // Helper Functions
     // ===============================================================
+    
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -57,23 +86,56 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
+    function uidUnchanged() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidString(field, maxLen) {
+      return request.resource.data[field] is string && request.resource.data[field].size() <= maxLen;
+    }
+
+    function isValidNumber(field) {
+      return request.resource.data[field] is number;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
     function isValidAccount(data) {
-      return data.keys().hasAll(['name', 'size', 'type', 'initialBalance', 'userId']) &&
+      return hasRequiredFields(['userId', 'name', 'size', 'type']) &&
+             data.userId is string && data.userId.size() > 0 &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.size is number && data.size > 0 &&
-             data.type in ['Challenge', 'Funded'] &&
-             data.initialBalance is number &&
-             data.userId == request.auth.uid;
+             data.type in ['Challenge', 'Funded', 'Personal', 'Failed'];
     }
 
     function isValidTrade(data) {
-      return data.keys().hasAll(['accountId', 'asset', 'direction', 'contractSize', 'entryPrice', 'userId']) &&
-             data.accountId is string &&
-             data.asset in ['MNQ', 'NQ', 'ES', 'MES', 'MGC', 'GC'] &&
+      return hasRequiredFields(['userId', 'accountId', 'asset', 'direction', 'entryPrice', 'date']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.accountId is string && data.accountId.size() > 0 &&
+             data.asset is string && data.asset.size() > 0 &&
              data.direction in ['Long', 'Short'] &&
-             data.contractSize is number && data.contractSize > 0 &&
              data.entryPrice is number &&
-             data.userId == request.auth.uid;
+             data.date is string;
+    }
+
+    function isValidStrategy(data) {
+      return hasRequiredFields(['userId', 'name']) &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
     }
 
     // ===============================================================
@@ -81,19 +143,29 @@ service cloud.firestore {
     // ===============================================================
 
     match /accounts/{accountId} {
-      allow read, write: if true;
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidAccount(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidAccount(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
     }
 
     match /trades/{tradeId} {
-      allow read, write: if true;
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidTrade(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidTrade(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
     }
 
     match /strategies/{strategyId} {
-      allow read, write: if true;
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidStrategy(request.resource.data) && uidUnchanged();
+      allow update: if isDocOwner() && isValidStrategy(request.resource.data) && uidNotModified();
+      allow delete: if isDocOwner();
     }
 
-    match /test/connection {
-      allow read: if true;
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
     }
   }
 }

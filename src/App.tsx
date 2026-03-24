@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
           </button>
           
           <p className="text-[10px] text-slate-600 uppercase font-bold tracking-[0.2em]">
-            Secure authentication powered by Supabase
+            Secure authentication powered by Firebase
           </p>
         </div>
       </div>

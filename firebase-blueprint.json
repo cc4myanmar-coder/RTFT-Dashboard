@@ -2,105 +2,134 @@
   "entities": {
     "Account": {
       "title": "Account",
-      "description": "Trading account details and Prop Firm rules",
+      "description": "Trading account details",
       "type": "object",
       "properties": {
+        "userId": { "type": "string" },
         "name": { "type": "string" },
         "size": { "type": "number" },
-        "type": { "type": "string", "enum": ["Challenge", "Funded"] },
+        "type": { "type": "string", "enum": ["Challenge", "Funded", "Personal", "Failed"] },
         "propFirm": { "type": "string" },
-        "profitTarget": { "type": "number" },
-        "maxDrawdown": { "type": "number" },
-        "consistencyRule": { "type": "number", "description": "Percentage (e.g., 0.4 for 40%)" },
         "initialBalance": { "type": "number" },
         "currentBalance": { "type": "number" },
         "maxBalance": { "type": "number" },
-        "userId": { "type": "string" },
+        "profitTarget": { "type": "number" },
+        "maxDrawdown": { "type": "number" },
+        "consistencyRule": { "type": "number" },
+        "commissions": {
+          "type": "object",
+          "properties": {
+            "MNQ": { "type": "number" },
+            "NQ": { "type": "number" },
+            "ES": { "type": "number" },
+            "MES": { "type": "number" },
+            "GC": { "type": "number" },
+            "MGC": { "type": "number" }
+          }
+        },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "size", "type", "initialBalance", "userId"]
+      "required": ["userId", "name", "size", "type"]
     },
     "Trade": {
       "title": "Trade",
-      "description": "Individual trade entry with TA and Psychology data",
+      "description": "Individual trade log",
       "type": "object",
       "properties": {
+        "userId": { "type": "string" },
         "accountId": { "type": "string" },
-        "asset": { "type": "string", "enum": ["MNQ", "NQ", "ES", "MES", "MGC", "GC"] },
+        "strategyId": { "type": "string" },
+        "asset": { "type": "string" },
         "direction": { "type": "string", "enum": ["Long", "Short"] },
-        "contractSize": { "type": "number" },
         "entryPrice": { "type": "number" },
         "stopLoss": { "type": "number" },
         "takeProfit": { "type": "number" },
-        "exitPrice": { "type": "number" },
-        "exitReason": { "type": "string", "enum": ["TP", "SL", "Partial Closed", "Cut Loss", "Breakeven"] },
-        "partialCloseReason": { "type": "string", "enum": ["Structural", "Mental"] },
+        "contractSize": { "type": "number" },
+        "exits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "price": { "type": "number" },
+              "contracts": { "type": "number" },
+              "time": { "type": "string" }
+            }
+          }
+        },
         "pnl": { "type": "number" },
+        "commission": { "type": "number" },
         "riskReward": { "type": "number" },
         "date": { "type": "string", "format": "date-time" },
-        "taNotes": { "type": "string" },
-        "psychologyNotes": { "type": "string" },
+        "notes": { "type": "string" },
+        "beforeImage": { "type": "string" },
+        "afterImage": { "type": "string" },
         "entryContext": { "type": "string" },
         "marketRegime": { "type": "string" },
         "fundamentalContext": { "type": "string" },
         "exitLogicFollowed": { "type": "boolean" },
-        "psychologyStatus": { "type": "string", "enum": ["Calm", "Exhausted", "Fear", "Greed", "Flow"] },
-        "userId": { "type": "string" },
+        "psychologyStatus": { "type": "string" },
+        "preTradeMindset": { "type": "string" },
+        "duringTradeEmotions": { "type": "string" },
+        "postTradeReview": { "type": "string" },
+        "disciplineScore": { "type": "number" },
+        "mistakes": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["accountId", "asset", "direction", "contractSize", "entryPrice", "userId"]
+      "required": ["userId", "accountId", "asset", "direction", "entryPrice", "date"]
     },
     "Strategy": {
       "title": "Strategy",
-      "description": "Trading strategy rules and psychology factors",
+      "description": "Trading strategy definition",
       "type": "object",
       "properties": {
-        "name": { "type": "string" },
         "userId": { "type": "string" },
-        "entry": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "rules": { "type": "array", "items": { "type": "string" } },
+        "setup": {
           "type": "object",
           "properties": {
-            "context": { "type": "string" },
-            "marketRegime": { "type": "string" },
-            "fundamentalSituation": { "type": "string" }
+            "timeframes": { "type": "array", "items": { "type": "string" } },
+            "indicators": { "type": "array", "items": { "type": "string" } },
+            "confluence": { "type": "array", "items": { "type": "string" } }
           }
         },
-        "exit": {
+        "risk": {
           "type": "object",
           "properties": {
-            "partialCloseLogic": { "type": "string" },
-            "cutLossLogic": { "type": "string" },
-            "tpLogic": { "type": "string" },
-            "slLogic": { "type": "string" },
-            "moveSLBEStructure": { "type": "string" }
+            "maxRiskPerTrade": { "type": "number" },
+            "rewardToRisk": { "type": "number" },
+            "maxDrawdown": { "type": "number" }
           }
         },
         "psychology": {
           "type": "object",
           "properties": {
-            "calmFactors": { "type": "string" },
-            "exhaustFactors": { "type": "string" },
-            "fearFactors": { "type": "string" },
-            "greedFactors": { "type": "string" }
+            "mindset": { "type": "string" },
+            "discipline": { "type": "string" },
+            "anxietyTriggers": { "type": "string" },
+            "confidenceBoosters": { "type": "string" }
           }
         },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "dailyLossLimit": { "type": "number" },
+        "maxTradesPerDay": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "userId"]
+      "required": ["userId", "name"]
     }
   },
   "firestore": {
     "/accounts/{accountId}": {
       "schema": "Account",
-      "description": "User trading accounts"
+      "description": "Trading accounts"
     },
     "/trades/{tradeId}": {
       "schema": "Trade",
-      "description": "User trade journal entries"
+      "description": "Trade logs"
     },
     "/strategies/{strategyId}": {
       "schema": "Strategy",
-      "description": "User trading strategies"
+      "description": "Trading strategies"
     }
   }
 }

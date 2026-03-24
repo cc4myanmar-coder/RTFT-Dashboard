@@ -39,7 +39,7 @@ export const TradeJournal: React.FC = () => {
     setIsClearingAll(true);
     setShowClearConfirm(false);
     try {
-      await db.trades.clear(user.id);
+      await db.trades.clear(user.uid);
       setNotification({ message: 'All trades cleared successfully.', type: 'success' });
     } catch (error) {
       console.error('Error clearing trades:', error);
@@ -57,29 +57,29 @@ export const TradeJournal: React.FC = () => {
     if (!user) return;
 
     // Initial load
-    db.accounts.list(user.id).then(accs => {
+    db.accounts.list(user.uid).then(accs => {
       setAccounts(accs);
       if (accs.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accs[0].id!);
       }
     });
-    db.trades.list(user.id).then(setTrades);
-    db.strategies.list(user.id).then(setStrategies);
+    db.trades.list(user.uid).then(setTrades);
+    db.strategies.list(user.uid).then(setStrategies);
 
     // Subscriptions
-    const unsubAccounts = db.accounts.subscribe(user.id, (payload) => {
+    const unsubAccounts = db.accounts.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setAccounts(prev => [...prev, payload.new as Account]);
       if (payload.eventType === 'UPDATE') setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new as Account : a));
       if (payload.eventType === 'DELETE') setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
     });
 
-    const unsubTrades = db.trades.subscribe(user.id, (payload) => {
+    const unsubTrades = db.trades.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setTrades(prev => [...prev, payload.new as Trade]);
       if (payload.eventType === 'UPDATE') setTrades(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trade : t));
       if (payload.eventType === 'DELETE') setTrades(prev => prev.filter(t => t.id !== payload.old.id));
     });
 
-    const unsubStrategies = db.strategies.subscribe(user.id, (payload) => {
+    const unsubStrategies = db.strategies.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setStrategies(prev => [...prev, payload.new as Strategy]);
       if (payload.eventType === 'UPDATE') setStrategies(prev => prev.map(s => s.id === payload.new.id ? payload.new as Strategy : s));
       if (payload.eventType === 'DELETE') setStrategies(prev => prev.filter(s => s.id !== payload.old.id));
@@ -112,6 +112,12 @@ export const TradeJournal: React.FC = () => {
     fundamentalContext: '',
     exitLogicFollowed: true,
     psychologyStatus: 'Calm' as any,
+    // Professional Psychology Tracking
+    preTradeMindset: '',
+    duringTradeEmotions: '',
+    postTradeReview: '',
+    disciplineScore: 5,
+    mistakes: [] as string[],
   });
 
   // Auto-calculate direction and risk/reward
@@ -180,6 +186,7 @@ export const TradeJournal: React.FC = () => {
     setIsSaving(true);
     try {
       console.log("Starting save process...");
+      const { id, ...dataToSave } = formData;
       if (formData.id) {
         console.log("Updating trade...");
         // Update existing trade
@@ -215,22 +222,22 @@ export const TradeJournal: React.FC = () => {
         }
 
         await db.trades.update(formData.id, {
-          ...formData,
+          ...dataToSave,
           pnl,
           commission: totalCommission,
           riskReward: rr,
-          userId: user.id,
+          userId: user.uid,
           date: formData.date.toISOString(),
         });
       } else {
         console.log("Adding new trade...");
         // Add new trade
         await db.trades.add({
-          ...formData,
+          ...dataToSave,
           pnl,
           commission: totalCommission,
           riskReward: rr,
-          userId: user.id,
+          userId: user.uid,
           date: formData.date.toISOString(),
         });
 
@@ -270,6 +277,11 @@ export const TradeJournal: React.FC = () => {
         fundamentalContext: '',
         exitLogicFollowed: true,
         psychologyStatus: 'Calm',
+        preTradeMindset: '',
+        duringTradeEmotions: '',
+        postTradeReview: '',
+        disciplineScore: 5,
+        mistakes: [],
       });
     } catch (error: any) {
       console.error('Error saving trade:', error);
@@ -299,6 +311,11 @@ export const TradeJournal: React.FC = () => {
       fundamentalContext: trade.fundamentalContext || '',
       exitLogicFollowed: trade.exitLogicFollowed ?? true,
       psychologyStatus: trade.psychologyStatus || 'Calm',
+      preTradeMindset: trade.preTradeMindset || '',
+      duringTradeEmotions: trade.duringTradeEmotions || '',
+      postTradeReview: trade.postTradeReview || '',
+      disciplineScore: trade.disciplineScore || 5,
+      mistakes: trade.mistakes || [],
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -427,6 +444,11 @@ export const TradeJournal: React.FC = () => {
                     fundamentalContext: '',
                     exitLogicFollowed: true,
                     psychologyStatus: 'Calm',
+                    preTradeMindset: '',
+                    duringTradeEmotions: '',
+                    postTradeReview: '',
+                    disciplineScore: 5,
+                    mistakes: [],
                   });
                   setShowForm(false);
                 }}
@@ -738,6 +760,9 @@ export const TradeJournal: React.FC = () => {
                     <option value="Fear">Fear</option>
                     <option value="Greed">Greed</option>
                     <option value="Exhausted">Exhausted</option>
+                    <option value="Anxious">Anxious</option>
+                    <option value="Confident">Confident</option>
+                    <option value="Revenge">Revenge</option>
                   </select>
                   <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 rotate-90 pointer-events-none group-hover:text-zinc-300 transition-colors" />
                 </div>
@@ -767,6 +792,91 @@ export const TradeJournal: React.FC = () => {
                   </div>
                   <span className="text-xs text-zinc-400 font-bold uppercase tracking-widest group-hover:text-zinc-200 transition-colors">Exit Logic Followed</span>
                 </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Professional Psychology Review Section */}
+          <div className="pt-6 border-t border-zinc-800 space-y-6">
+            <div className="flex items-center gap-2">
+              <Brain size={16} className="text-purple-500" />
+              <h3 className="text-sm font-black uppercase tracking-[0.2em] text-purple-500">Professional Psychology Review</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-500 uppercase font-bold tracking-widest">Pre-Trade Mindset</label>
+                <textarea
+                  value={formData.preTradeMindset}
+                  onChange={e => setFormData({ ...formData, preTradeMindset: e.target.value })}
+                  placeholder="How were you feeling before entering? Were you following the plan?"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-700 min-h-[80px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-500 uppercase font-bold tracking-widest">During-Trade Emotions</label>
+                <textarea
+                  value={formData.duringTradeEmotions}
+                  onChange={e => setFormData({ ...formData, duringTradeEmotions: e.target.value })}
+                  placeholder="What emotions did you experience while the trade was active?"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-700 min-h-[80px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-zinc-500 uppercase font-bold tracking-widest">Post-Trade Review</label>
+                <textarea
+                  value={formData.postTradeReview}
+                  onChange={e => setFormData({ ...formData, postTradeReview: e.target.value })}
+                  placeholder="Did you follow your rules? What could be improved?"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-zinc-700 min-h-[80px]"
+                />
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-500 uppercase font-bold tracking-widest">Discipline Score (1-5)</label>
+                  <div className="flex items-center gap-4">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, disciplineScore: score })}
+                        className={cn(
+                          "w-10 h-10 rounded-lg font-bold transition-all",
+                          formData.disciplineScore === score 
+                            ? "bg-purple-500 text-white shadow-lg shadow-purple-500/20" 
+                            : "bg-zinc-950 border border-zinc-800 text-zinc-500 hover:border-zinc-700"
+                        )}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-zinc-500 uppercase font-bold tracking-widest">Common Mistakes</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['FOMO', 'Early Exit', 'Over-leveraging', 'Revenge Trading', 'Late Entry', 'Moved SL'].map(mistake => (
+                      <button
+                        key={mistake}
+                        type="button"
+                        onClick={() => {
+                          const newMistakes = formData.mistakes.includes(mistake)
+                            ? formData.mistakes.filter(m => m !== mistake)
+                            : [...formData.mistakes, mistake];
+                          setFormData({ ...formData, mistakes: newMistakes });
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all",
+                          formData.mistakes.includes(mistake)
+                            ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                            : "bg-zinc-950 border border-zinc-800 text-zinc-600 hover:border-zinc-700"
+                        )}
+                      >
+                        {mistake}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -930,6 +1040,11 @@ export const TradeJournal: React.FC = () => {
                     fundamentalContext: '',
                     exitLogicFollowed: true,
                     psychologyStatus: 'Calm',
+                    preTradeMindset: '',
+                    duringTradeEmotions: '',
+                    postTradeReview: '',
+                    disciplineScore: 5,
+                    mistakes: [],
                   });
                 }}
                 disabled={isSaving}
@@ -1372,19 +1487,63 @@ export const TradeJournal: React.FC = () => {
                 <div className="glass-card p-6 rounded-2xl border-zinc-800/50 space-y-4">
                   <div className="flex items-center gap-3 text-purple-500">
                     <Brain size={18} />
-                    <h4 className="text-xs font-black uppercase tracking-widest">Psychology</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest">Psychology & Discipline</h4>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
                       <span className="text-[10px] text-zinc-500 font-bold uppercase">Status:</span>
                       <span className={cn(
                         "text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded",
-                        viewingTrade.psychologyStatus === 'Flow' || viewingTrade.psychologyStatus === 'Calm' ? "bg-blue-500/10 text-blue-400" : "bg-red-500/10 text-red-400"
+                        viewingTrade.psychologyStatus === 'Flow' || viewingTrade.psychologyStatus === 'Calm' || viewingTrade.psychologyStatus === 'Confident' ? "bg-blue-500/10 text-blue-400" : "bg-red-500/10 text-red-400"
                       )}>
                         {viewingTrade.psychologyStatus || 'N/A'}
                       </span>
                     </div>
-                    <p className="text-sm text-zinc-300 leading-relaxed italic">Psychology status recorded for this trade.</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-500 font-bold uppercase">Discipline:</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <div 
+                            key={star}
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              star <= (viewingTrade.disciplineScore || 0) ? "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]" : "bg-zinc-800"
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {viewingTrade.preTradeMindset && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">Pre-Trade Mindset:</p>
+                        <p className="text-xs text-zinc-300 italic">"{viewingTrade.preTradeMindset}"</p>
+                      </div>
+                    )}
+                    {viewingTrade.duringTradeEmotions && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">Emotions During Trade:</p>
+                        <p className="text-xs text-zinc-300 italic">"{viewingTrade.duringTradeEmotions}"</p>
+                      </div>
+                    )}
+                    {viewingTrade.postTradeReview && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">Post-Trade Review:</p>
+                        <p className="text-xs text-zinc-300 italic">"{viewingTrade.postTradeReview}"</p>
+                      </div>
+                    )}
+                    {viewingTrade.mistakes && viewingTrade.mistakes.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">Mistakes Identified:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {viewingTrade.mistakes.map((mistake, idx) => (
+                            <span key={idx} className="text-[9px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 font-bold uppercase tracking-widest">
+                              {mistake}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

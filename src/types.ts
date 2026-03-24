@@ -42,7 +42,14 @@ export interface Trade {
   marketRegime?: string;
   fundamentalContext?: string;
   exitLogicFollowed?: boolean;
-  psychologyStatus?: 'Calm' | 'Exhausted' | 'Fear' | 'Greed' | 'Flow';
+  psychologyStatus?: 'Calm' | 'Exhausted' | 'Fear' | 'Greed' | 'Flow' | 'Anxious' | 'Confident' | 'Revenge';
+  
+  // Professional Psychology Tracking
+  preTradeMindset?: string;
+  duringTradeEmotions?: string;
+  postTradeReview?: string;
+  disciplineScore?: number; // 1-5
+  mistakes?: string[]; // e.g., ["FOMO", "Early Exit", "Over-leveraging", "Revenge Trading"]
   
   beforeImage?: string;
   afterImage?: string;
@@ -74,6 +81,10 @@ export interface Strategy {
     exhaustFactors: string;
     fearFactors: string;
     greedFactors: string;
+    anxietyTriggers: string;
+    confidenceBoosters: string;
   };
+  dailyLossLimit?: number;
+  maxTradesPerDay?: number;
   updatedAt: any;
 }

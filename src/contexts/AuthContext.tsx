@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../supabase';
-import { User } from '@supabase/supabase-js';
+import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, User } from '../firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -18,50 +17,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock session check
-    const savedUser = localStorage.getItem('mock-user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
   const login = async () => {
-    setLoading(true);
-    // Mock login with a dummy user
-    const mockUser: any = {
-      id: 'dev-user-123',
-      email: 'dev@example.com',
-      user_metadata: {
-        display_name: 'Dev User',
-        avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev',
-        app_logo_url: '/api/attachments/a7122851-4034-4531-9025-667793656783'
-      }
-    };
-    setUser(mockUser);
-    localStorage.setItem('mock-user', JSON.stringify(mockUser));
-    setLoading(false);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error('Login error:', error);
+    }
   };
 
   const logout = async () => {
-    setUser(null);
-    localStorage.removeItem('mock-user');
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const updateProfile = async (data: { displayName?: string; photoURL?: string; appLogoURL?: string }) => {
-    if (user) {
-      const updatedUser = {
-        ...user,
-        user_metadata: {
-          ...user.user_metadata,
-          display_name: data.displayName || user.user_metadata?.display_name,
-          avatar_url: data.photoURL || user.user_metadata?.avatar_url,
-          app_logo_url: data.appLogoURL || user.user_metadata?.app_logo_url
-        }
-      };
-      setUser(updatedUser);
-      localStorage.setItem('mock-user', JSON.stringify(updatedUser));
-    }
+    // Firebase profile update logic if needed, but usually handled via Firestore users collection
+    console.log('Update profile:', data);
   };
 
   const isUsernameUnique = async (username: string) => {

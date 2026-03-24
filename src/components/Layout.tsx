@@ -19,10 +19,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
   const { user, logout, updateProfile, isUsernameUnique } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [hoveredItem, setHoveredItem] = useState<{ label: string; top: number; color: string } | null>(null);
   
-  const displayName = user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'User';
-  const photoURL = user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${displayName}&background=3b82f6&color=fff`;
-  const appLogoURL = user?.user_metadata?.app_logo_url || '/api/attachments/a7122851-4034-4531-9025-667793656783';
+  const displayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+  const photoURL = user?.photoURL || `https://ui-avatars.com/api/?name=${displayName}&background=3b82f6&color=fff`;
+  const appLogoURL = '/api/attachments/a7122851-4034-4531-9025-667793656783';
 
   const [profileData, setProfileData] = useState({
     displayName: displayName,
@@ -36,9 +37,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
   useEffect(() => {
     if (user) {
       setProfileData({
-        displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || '',
-        photoURL: user.user_metadata?.avatar_url || '',
-        appLogoURL: user.user_metadata?.app_logo_url || ''
+        displayName: user.displayName || user.email?.split('@')[0] || '',
+        photoURL: user.photoURL || '',
+        appLogoURL: ''
       });
     }
   }, [user]);
@@ -112,7 +113,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
   ];
 
   const SidebarContent = () => {
-    const [hoveredItem, setHoveredItem] = useState<{ label: string; top: number } | null>(null);
+    const handleMouseEnter = (e: React.MouseEvent, label: string, color: string) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setHoveredItem({
+        label,
+        top: rect.top + rect.height / 2,
+        color
+      });
+    };
 
     return (
       <div className="flex flex-col h-full overflow-visible">
@@ -134,8 +142,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
         </div>
 
         {/* Navigation - Scrollable area */}
-        <div className="flex-1 overflow-y-auto no-scrollbar py-6 overflow-x-visible">
-          <nav className="flex flex-col items-center space-y-8 overflow-visible">
+        <div className="flex-1 overflow-y-auto py-6 no-scrollbar relative">
+          <nav className="flex flex-col items-center space-y-8">
             {navItems.map((item) => (
               <button
                 key={item.id}
@@ -143,10 +151,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
                   setView(item.id);
                   setIsSidebarOpen(false);
                 }}
-                onMouseEnter={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setHoveredItem({ label: item.label, top: rect.top + rect.height / 2 });
-                }}
+                onMouseEnter={(e) => handleMouseEnter(e, item.label, 'blue')}
                 onMouseLeave={() => setHoveredItem(null)}
                 className={cn(
                   "w-14 h-14 flex items-center justify-center rounded-2xl transition-all duration-500 group relative",
@@ -176,24 +181,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
           </nav>
         </div>
 
-        {/* Fixed Tooltip Overlay */}
-        {hoveredItem && (
-          <div 
-            className="fixed left-28 px-5 py-3 bg-slate-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl text-[11px] font-black uppercase tracking-[0.25em] z-[100] whitespace-nowrap shadow-[0_10px_40px_rgba(0,0,0,0.5)] text-blue-400 border-l-4 border-l-blue-500 pointer-events-none"
-            style={{ 
-              top: hoveredItem.top,
-              transform: 'translateY(-50%)'
-            }}
-          >
-            {hoveredItem.label}
-            <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 rotate-45" />
-          </div>
-        )}
-
         {/* Profile - Sticky at bottom */}
         <div className="pt-8 border-t border-slate-800/50 flex flex-col items-center space-y-8 flex-shrink-0 pb-8 sticky bottom-0 bg-slate-950/80 backdrop-blur-3xl z-30">
           <div 
             className="flex flex-col items-center gap-3 group cursor-pointer"
+            onMouseEnter={(e) => handleMouseEnter(e, 'Profile Settings', 'blue')}
+            onMouseLeave={() => setHoveredItem(null)}
             onClick={() => {
               setProfileData({
                 displayName: displayName,
@@ -212,17 +205,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
               />
               <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
             </div>
-            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest group-hover:text-blue-400 transition-colors truncate max-w-[70px] text-center">
-              {displayName}
-            </span>
           </div>
 
           <button
             onClick={logout}
-            onMouseEnter={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setHoveredItem({ label: 'Logout', top: rect.top + rect.height / 2 });
-            }}
+            onMouseEnter={(e) => handleMouseEnter(e, 'Logout', 'red')}
             onMouseLeave={() => setHoveredItem(null)}
             className="w-12 h-12 flex items-center justify-center rounded-2xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all group relative border border-transparent hover:border-red-500/20"
           >
@@ -401,6 +388,24 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Fixed Tooltip Container */}
+      {hoveredItem && (
+        <div 
+          className="fixed left-24 px-4 py-2 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest z-[9999] shadow-2xl pointer-events-none transition-all duration-300 -translate-y-1/2"
+          style={{ 
+            top: hoveredItem.top,
+            color: hoveredItem.color === 'red' ? '#f87171' : '#60a5fa',
+            borderLeft: `4px solid ${hoveredItem.color === 'red' ? '#ef4444' : '#3b82f6'}`
+          }}
+        >
+          {hoveredItem.label}
+          <div 
+            className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rotate-45"
+            style={{ backgroundColor: hoveredItem.color === 'red' ? '#ef4444' : '#3b82f6' }}
+          />
         </div>
       )}
 

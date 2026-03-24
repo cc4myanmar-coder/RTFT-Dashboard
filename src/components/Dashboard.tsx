@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { db } from '../supabase';
 import { Account, Trade } from '../types';
 import { formatCurrency, checkConsistencyRule, calculateTrailingDrawdown } from '../utils';
-import { TrendingUp, TrendingDown, Target, Activity, CheckCircle2, XCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ShieldCheck, Sword, Skull, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Activity, CheckCircle2, XCircle, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ShieldCheck, Sword, Skull, Info, Brain } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -19,23 +19,23 @@ export const Dashboard: React.FC = () => {
     if (!user) return;
 
     // Initial load
-    db.accounts.list(user.id).then(accs => {
+    db.accounts.list(user.uid).then(accs => {
       setAccounts(accs);
       if (accs.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accs[0].id!);
       }
     });
-    db.trades.list(user.id).then(setTrades);
+    db.trades.list(user.uid).then(setTrades);
 
     // Subscribe to accounts
-    const unsubAccounts = db.accounts.subscribe(user.id, (payload) => {
+    const unsubAccounts = db.accounts.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setAccounts(prev => [...prev, payload.new as Account]);
       if (payload.eventType === 'UPDATE') setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new as Account : a));
       if (payload.eventType === 'DELETE') setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
     });
 
     // Subscribe to trades
-    const unsubTrades = db.trades.subscribe(user.id, (payload) => {
+    const unsubTrades = db.trades.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setTrades(prev => [...prev, payload.new as Trade]);
       if (payload.eventType === 'UPDATE') setTrades(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trade : t));
       if (payload.eventType === 'DELETE') setTrades(prev => prev.filter(t => t.id !== payload.old.id));
@@ -86,6 +86,28 @@ export const Dashboard: React.FC = () => {
 
   const isConsistent = selectedAccount ? checkConsistencyRule(accountTrades, selectedAccount) : true;
   const trailingDrawdown = selectedAccount ? calculateTrailingDrawdown(selectedAccount) : 0;
+
+  // Psychology Stats
+  const avgDiscipline = accountTrades.length > 0
+    ? accountTrades.reduce((sum, t) => sum + (t.disciplineScore || 0), 0) / accountTrades.length
+    : 0;
+  
+  const mistakeCounts = accountTrades.reduce((acc: Record<string, number>, t) => {
+    (t.mistakes || []).forEach(m => {
+      acc[m] = (acc[m] || 0) + 1;
+    });
+    return acc;
+  }, {});
+  
+  const topMistakes = Object.entries(mistakeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  const psychDistribution = accountTrades.reduce((acc: Record<string, number>, t) => {
+    const status = t.psychologyStatus || 'Unknown';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
 
   const chartData = accountTrades
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -370,6 +392,64 @@ export const Dashboard: React.FC = () => {
                   className="h-full bg-red-500 transition-all duration-1000 shadow-[0_0_15px_rgba(239,68,68,0.6)]" 
                   style={{ width: `${Math.min(100, ((selectedAccount?.currentBalance || 0) - trailingDrawdown) / (selectedAccount?.maxDrawdown || 1) * 100)}%` }}
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Psychology Performance */}
+        <div className="glass-card p-8 rounded-3xl space-y-8 hover:border-purple-500/20 transition-colors duration-500">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Psychology Performance</h2>
+            <Brain size={18} className="text-purple-500" />
+          </div>
+          
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-6 bg-slate-950/50 rounded-2xl border border-slate-800 group hover:border-purple-500/30 transition-all duration-300">
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Avg Discipline</p>
+                <div className="flex gap-1 mt-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <div 
+                      key={star}
+                      className={cn(
+                        "w-3 h-3 rounded-full",
+                        star <= Math.round(avgDiscipline) ? "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" : "bg-slate-800"
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+              <span className="text-2xl font-bold text-white font-display">{avgDiscipline.toFixed(1)}</span>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Top Mistakes</p>
+              <div className="space-y-2">
+                {topMistakes.length > 0 ? topMistakes.map(([mistake, count], idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-red-500/5 rounded-xl border border-red-500/10">
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">{mistake}</span>
+                    <span className="text-[10px] font-black text-slate-500">{count}x</span>
+                  </div>
+                )) : (
+                  <p className="text-[10px] text-slate-600 italic uppercase tracking-widest text-center py-4">No mistakes recorded yet</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Mindset Distribution</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(psychDistribution).map(([status, count], idx) => (
+                  <div key={idx} className="px-3 py-1.5 bg-slate-950/50 border border-slate-800 rounded-lg flex items-center gap-2">
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      status === 'Flow' || status === 'Calm' || status === 'Confident' ? "bg-blue-500" : "bg-red-500"
+                    )} />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{status}</span>
+                    <span className="text-[9px] font-black text-slate-600">{count}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

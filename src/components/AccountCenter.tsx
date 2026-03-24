@@ -37,13 +37,13 @@ export const AccountCenter: React.FC = () => {
     if (!user) return;
     
     // Initial load
-    db.accounts.list(user.id).then(setAccounts).catch(err => {
+    db.accounts.list(user.uid).then(setAccounts).catch(err => {
       console.error("Error loading accounts:", err);
       setError("Failed to load accounts.");
     });
 
     // Subscribe to changes
-    const unsubscribe = db.accounts.subscribe(user.id, (payload) => {
+    const unsubscribe = db.accounts.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') {
         setAccounts(prev => [...prev, payload.new as Account]);
       } else if (payload.eventType === 'UPDATE') {
@@ -101,7 +101,7 @@ export const AccountCenter: React.FC = () => {
     try {
       const data = {
         ...formData,
-        userId: user.id,
+        userId: user.uid,
         initialBalance: formData.size * 1000,
         currentBalance: editingId ? accounts.find(a => a.id === editingId)?.currentBalance : formData.size * 1000,
         maxBalance: editingId ? accounts.find(a => a.id === editingId)?.maxBalance : formData.size * 1000,

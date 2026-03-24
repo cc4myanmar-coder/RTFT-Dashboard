@@ -47,12 +47,6 @@ interface Headline {
   impact: 'High' | 'Medium' | 'Low';
 }
 
-interface FearGreed {
-  value: number;
-  sentiment: string;
-  lastUpdated: string;
-}
-
 interface SeasonalityData {
   asset: string;
   trend: 'Bullish' | 'Bearish' | 'Neutral';
@@ -66,6 +60,7 @@ interface WarNews {
   region: string;
   summary: string;
   severity: 'Critical' | 'High' | 'Moderate';
+  source: string;
   time: string;
 }
 
@@ -73,7 +68,6 @@ export const NewsTab: React.FC = () => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [headlines, setHeadlines] = useState<Headline[]>([]);
   const [warNews, setWarNews] = useState<WarNews[]>([]);
-  const [fearGreed, setFearGreed] = useState<FearGreed | null>(null);
   const [tradData, setTradData] = useState<TradData | null>({
     indices: [
       { symbol: 'ESM26', contractName: "S&P 500 E-Mini (Jun '26)", latest: '6,640.25', change: '+5.50', open: '6,635.00', high: '6,653.50', low: '6,582.50', volume: '129,724', liquidity: 'High', liquidityAmount: '$860.4M', time: '02:42 CT' },
@@ -120,12 +114,11 @@ export const NewsTab: React.FC = () => {
         contents: `Provide a comprehensive market intelligence report for March 24, 2026. 
         Include:
         1. US Economic News for this week (March 23-29, 2026).
-        2. Current Fear & Greed Index for Traditional Indices.
-        3. Market Seasonality trends for S&P 500, Nasdaq, Dow, and Russell 2000.
-        4. Detailed Indices (Futures) data for: ESM26, ESU26, NQM26, NQU26, YMM26, YMU26, QRM26, QRU26, EWM26, EWU26, ETM26, NMM26, VIJ26, VIK26, GDJ26.
+        2. Market Seasonality trends for S&P 500, Nasdaq, Dow, and Russell 2000.
+        3. Detailed Indices (Futures) data for: ESM26, ESU26, NQM26, NQU26, YMM26, YMU26, QRM26, QRU26, EWM26, EWU26, ETM26, NMM26, VIJ26, VIK26, GDJ26.
            For each, provide: Symbol, Contract Name, Latest Price, Change, Open, High, Low, Volume, Liquidity Level (High, Moderate, Low, Minimal), Liquidity Amount (specific numerical estimate in USD, e.g., "$860.4M"), and Time (CT).
-        5. Top 5 Market Headlines for today.
-        6. Top 3 War or Geopolitical Conflict news items that could impact global markets.
+        4. Top 5 Market Headlines for today from reliable financial news sources (Bloomberg, Reuters, FT).
+        5. Top 3 War or Geopolitical Conflict news items that could impact global markets, sourced from reliable international news agencies (AP, Reuters, BBC).
         
         Search for current trends and project them to March 2026. Return as a single JSON object.`,
         config: {
@@ -175,18 +168,11 @@ export const NewsTab: React.FC = () => {
                     region: { type: Type.STRING },
                     summary: { type: Type.STRING },
                     severity: { type: Type.STRING, enum: ["Critical", "High", "Moderate"] },
+                    source: { type: Type.STRING },
                     time: { type: Type.STRING },
                   },
-                  required: ["id", "title", "region", "summary", "severity", "time"]
+                  required: ["id", "title", "region", "summary", "severity", "source", "time"]
                 }
-              },
-              fearGreedTrad: {
-                type: Type.OBJECT,
-                properties: {
-                  value: { type: Type.NUMBER },
-                  sentiment: { type: Type.STRING }
-                },
-                required: ["value", "sentiment"]
               },
               indices: {
                 type: Type.ARRAY,
@@ -222,7 +208,7 @@ export const NewsTab: React.FC = () => {
                 }
               }
             },
-            required: ["news", "fearGreedTrad", "indices", "seasonalityTrad", "headlines"]
+            required: ["news", "indices", "seasonalityTrad", "headlines", "warNews"]
           }
         }
       });
@@ -232,7 +218,6 @@ export const NewsTab: React.FC = () => {
         setNews(data.news);
         if (data.headlines) setHeadlines(data.headlines);
         if (data.warNews) setWarNews(data.warNews);
-        setFearGreed({ ...data.fearGreedTrad, lastUpdated: new Date().toISOString() });
         setTradData({
           indices: data.indices,
           indicesSeasonality: data.seasonalityTrad
@@ -250,9 +235,8 @@ export const NewsTab: React.FC = () => {
     setError(null);
     try {
       // First try to get what we can from APIs
-      const [newsRes, fgRes, tradRes] = await Promise.all([
+      const [newsRes, tradRes] = await Promise.all([
         fetch(`/api/news?start=${dateRange.start}&end=${dateRange.end}`),
-        fetch('/api/fear-greed'),
         fetch('/api/trad/liquidity')
       ]);
 
@@ -265,15 +249,13 @@ export const NewsTab: React.FC = () => {
       };
 
       const newsData = await parseJson(newsRes);
-      const fgData = await parseJson(fgRes);
       const tData = await parseJson(tradRes);
 
       // If any of these are missing or we want to ensure AI enhancement, call the AI
-      if (!newsData || !fgData || !tData) {
+      if (!newsData || !tData) {
         await fetchMarketDataWithAI();
       } else {
         setNews(newsData);
-        setFearGreed(fgData);
         setTradData(tData);
       }
 
@@ -488,9 +470,15 @@ export const NewsTab: React.FC = () => {
                     <p className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2">
                       {war.summary}
                     </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <Clock size={10} className="text-zinc-600" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-zinc-600">{war.time}</span>
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-2">
+                        <Globe size={10} className="text-zinc-600" />
+                        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-600">{war.source}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock size={10} className="text-zinc-600" />
+                        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-600">{war.time}</span>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -561,30 +549,53 @@ export const NewsTab: React.FC = () => {
                 </div>
 
                 {/* Date Filters */}
-                <div className="flex items-center gap-3 p-2 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl">
-                  <div className="flex-1 flex flex-col gap-1 px-3 relative group">
-                    <label className="text-[7px] font-black uppercase tracking-widest text-zinc-500">From</label>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={12} className="text-zinc-600 group-hover:text-blue-400 transition-colors" />
-                      <input 
-                        type="date" 
-                        value={dateRange.start}
-                        onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                        className="bg-transparent text-[10px] font-mono text-zinc-300 outline-none cursor-pointer focus:text-blue-400 transition-colors w-full"
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2">
+                    {[
+                      { label: 'Today', days: 0 },
+                      { label: 'This Week', days: 7 },
+                      { label: 'Next Week', days: 14 },
+                      { label: 'This Month', days: 30 }
+                    ].map((filter) => (
+                      <button
+                        key={filter.label}
+                        onClick={() => {
+                          const start = new Date().toISOString().split('T')[0];
+                          const end = new Date(Date.now() + filter.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                          setDateRange({ start, end });
+                        }}
+                        className="px-3 py-1.5 bg-zinc-950/50 border border-zinc-800/50 rounded-xl text-[8px] font-black uppercase tracking-widest text-zinc-500 hover:text-blue-400 hover:border-blue-500/30 transition-all whitespace-nowrap"
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
                   </div>
-                  <div className="w-px h-8 bg-zinc-800" />
-                  <div className="flex-1 flex flex-col gap-1 px-3 relative group">
-                    <label className="text-[7px] font-black uppercase tracking-widest text-zinc-500">To</label>
-                    <div className="flex items-center gap-2">
-                      <Calendar size={12} className="text-zinc-600 group-hover:text-blue-400 transition-colors" />
-                      <input 
-                        type="date" 
-                        value={dateRange.end}
-                        onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                        className="bg-transparent text-[10px] font-mono text-zinc-300 outline-none cursor-pointer focus:text-blue-400 transition-colors w-full"
-                      />
+                  
+                  <div className="flex items-center gap-3 p-2 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl">
+                    <div className="flex-1 flex flex-col gap-1 px-3 relative group">
+                      <label className="text-[7px] font-black uppercase tracking-widest text-zinc-500">From</label>
+                      <div className="flex items-center gap-2">
+                        <Calendar size={12} className="text-zinc-600 group-hover:text-blue-400 transition-colors" />
+                        <input 
+                          type="date" 
+                          value={dateRange.start}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                          className="bg-transparent text-[10px] font-mono text-zinc-300 outline-none cursor-pointer focus:text-blue-400 transition-colors w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="w-px h-8 bg-zinc-800" />
+                    <div className="flex-1 flex flex-col gap-1 px-3 relative group">
+                      <label className="text-[7px] font-black uppercase tracking-widest text-zinc-500">To</label>
+                      <div className="flex items-center gap-2">
+                        <Calendar size={12} className="text-zinc-600 group-hover:text-blue-400 transition-colors" />
+                        <input 
+                          type="date" 
+                          value={dateRange.end}
+                          onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                          className="bg-transparent text-[10px] font-mono text-zinc-300 outline-none cursor-pointer focus:text-blue-400 transition-colors w-full"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

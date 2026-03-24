@@ -14,7 +14,7 @@ export const StrategyCenter: React.FC = () => {
 
   const initialFormData: Strategy = {
     name: '',
-    userId: user?.id || '',
+    userId: user?.uid || '',
     entry: {
       context: '',
       marketRegime: '',
@@ -32,7 +32,11 @@ export const StrategyCenter: React.FC = () => {
       exhaustFactors: '',
       fearFactors: '',
       greedFactors: '',
+      anxietyTriggers: '',
+      confidenceBoosters: '',
     },
+    dailyLossLimit: 0,
+    maxTradesPerDay: 0,
     updatedAt: null,
   };
 
@@ -42,10 +46,10 @@ export const StrategyCenter: React.FC = () => {
     if (!user) return;
 
     // Initial load
-    db.strategies.list(user.id).then(setStrategies);
+    db.strategies.list(user.uid).then(setStrategies);
 
     // Subscribe to strategies
-    const unsubscribe = db.strategies.subscribe(user.id, (payload) => {
+    const unsubscribe = db.strategies.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setStrategies(prev => [...prev, payload.new as Strategy]);
       if (payload.eventType === 'UPDATE') setStrategies(prev => prev.map(s => s.id === payload.new.id ? payload.new as Strategy : s));
       if (payload.eventType === 'DELETE') setStrategies(prev => prev.filter(s => s.id !== payload.old.id));
@@ -60,18 +64,19 @@ export const StrategyCenter: React.FC = () => {
     setSaveStatus('idle');
 
     try {
+      const { id, ...dataToSave } = formData;
       if (formData.id) {
         // Update existing
         await db.strategies.update(formData.id, {
-          ...formData,
-          userId: user.id,
+          ...dataToSave,
+          userId: user.uid,
           updatedAt: new Date().toISOString(),
         });
       } else {
         // Create new
         await db.strategies.add({
-          ...formData,
-          userId: user.id,
+          ...dataToSave,
+          userId: user.uid,
           updatedAt: new Date().toISOString(),
         });
       }
@@ -361,16 +366,49 @@ export const StrategyCenter: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Fear / Anxiety</label>
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Anxiety Triggers</label>
                   <Shield size={14} className="text-blue-500" />
                 </div>
                 <input
                   type="text"
-                  value={formData.psychology.fearFactors}
-                  onChange={e => setFormData({ ...formData, psychology: { ...formData.psychology, fearFactors: e.target.value } })}
-                  placeholder="Triggers for hesitation or early exits?"
+                  value={formData.psychology.anxietyTriggers}
+                  onChange={e => setFormData({ ...formData, psychology: { ...formData.psychology, anxietyTriggers: e.target.value } })}
+                  placeholder="What triggers anxiety during a trade?"
                   className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-white text-sm"
                 />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Confidence Boosters</label>
+                  <TrendingUp size={14} className="text-blue-500" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.psychology.confidenceBoosters}
+                  onChange={e => setFormData({ ...formData, psychology: { ...formData.psychology, confidenceBoosters: e.target.value } })}
+                  placeholder="What builds your confidence?"
+                  className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-white text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Daily Loss Limit ($)</label>
+                  <input
+                    type="number"
+                    value={formData.dailyLossLimit}
+                    onChange={e => setFormData({ ...formData, dailyLossLimit: Number(e.target.value) })}
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-white text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] ml-1">Max Trades/Day</label>
+                  <input
+                    type="number"
+                    value={formData.maxTradesPerDay}
+                    onChange={e => setFormData({ ...formData, maxTradesPerDay: Number(e.target.value) })}
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all text-white text-sm"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

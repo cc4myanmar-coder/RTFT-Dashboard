@@ -20,22 +20,22 @@ export const AIInsights: React.FC = () => {
     if (!user) return;
 
     // Initial load
-    db.accounts.list(user.id).then(accs => {
+    db.accounts.list(user.uid).then(accs => {
       setAccounts(accs);
       if (accs.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accs[0].id!);
       }
     });
-    db.trades.list(user.id).then(setTrades);
+    db.trades.list(user.uid).then(setTrades);
 
     // Subscriptions
-    const unsubAccounts = db.accounts.subscribe(user.id, (payload) => {
+    const unsubAccounts = db.accounts.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setAccounts(prev => [...prev, payload.new as Account]);
       if (payload.eventType === 'UPDATE') setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new as Account : a));
       if (payload.eventType === 'DELETE') setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
     });
 
-    const unsubTrades = db.trades.subscribe(user.id, (payload) => {
+    const unsubTrades = db.trades.subscribe(user.uid, (payload) => {
       if (payload.eventType === 'INSERT') setTrades(prev => [...prev, payload.new as Trade]);
       if (payload.eventType === 'UPDATE') setTrades(prev => prev.map(t => t.id === payload.new.id ? payload.new as Trade : t));
       if (payload.eventType === 'DELETE') setTrades(prev => prev.filter(t => t.id !== payload.old.id));
